@@ -76,6 +76,11 @@
 `git push -u origin master`
 `git pull` // Tips: if conflict, first pull, solve the confliction, then push again
 
+- 遇到的坑: 我的电脑上的ssh public key绑定了dy-chenzq这个repo, 导致我想将我的Note push到github上时出现了"key is already in used错误"
+解决方法: 
+  1. 删除之前给项目绑定的ssh key, 用账户全局key代替.
+  2. 新建ssh key, 分别绑定.
+
 ## 计算机网络基础
 
 ### OSI七层模型 & TCP/IP五层模型 
