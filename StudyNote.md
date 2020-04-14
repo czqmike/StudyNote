@@ -100,33 +100,33 @@
      ***Note***: "网桥"即集线器, 根本目的是延伸网线, 网桥+MAC地址学习≈交换机(避免了对全体的帧广播)
      
   3. 网络层
-    - 提供不可靠, 无连接的传送服务
-    - 路径选择, 路由, 逻辑寻址
-    - 主要协议
-      - IP(Internet Protocol, 互联网互联协议)
-      - ICMP(Internet Control Message Protocol, 因特网报文控制协议) *Ping*
-      - ARP/RARP(\[Reverse] Address Resolution Protocol, 地址解析协议)
-    - 重要的设备: 路由器
+     - 提供不可靠, 无连接的传送服务
+     - 路径选择, 路由, 逻辑寻址
+     - 主要协议
+       - IP(Internet Protocol, 互联网互联协议)
+       - ICMP(Internet Control Message Protocol, 因特网报文控制协议) *Ping*
+       - ARP/RARP(\[Reverse] Address Resolution Protocol, 地址解析协议)
+     - 重要的设备: 路由器
 
   4. 传输层
-    - 提供端到端的可靠或不可靠的传输, 差别控制和流量控制
-    - 主要协议
-      - TCP(Transmission Control Protocol, 传输控制协议)
-      - UDP(User Datagram Protocol, 用户数据报协议)
-    - 重要设备: 网关
+     - 提供端到端的可靠或不可靠的传输, 差别控制和流量控制
+     - 主要协议
+       - TCP(Transmission Control Protocol, 传输控制协议)
+       - UDP(User Datagram Protocol, 用户数据报协议)
+     - 重要设备: 网关
   5. 会话层
-    负责建立, 管理, 终止进程间的**会话**
+     负责建立, 管理, 终止进程间的**会话**
   6. 表示层
-    对数据进行**转换**, 包括加密、压缩、格式转换等
+     对数据进行**转换**, 包括加密、压缩、格式转换等
   7. 应用层
-    - 为操作系统提供访问网络服务的**接口**
-    - 主要协议
-      - FTP(文件传输协议)
-      - Telnet(远程登录协议)
-      - DNS(域名解析)
-      - SMTP(邮件传输协议)
-      - POP3(邮件协议)
-      - HTTP(超文本传输协议)
+      - 为操作系统提供访问网络服务的**接口**
+      - 主要协议
+        - FTP(文件传输协议)
+        - Telnet(远程登录协议)
+        - DNS(域名解析)
+        - SMTP(邮件传输协议)
+        - POP3(邮件协议)
+        - HTTP(超文本传输协议)
 
 
 ### IP地址
