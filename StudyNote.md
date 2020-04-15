@@ -38,6 +38,10 @@
 | ------------- |:-------------:| -----:|	
 | col 3 is      | right-aligned |  $16  |
 
+- math
+[markdown_math](https://www.jianshu.com/p/e74eb43960a1)
+[markdown_matrix](https://blog.csdn.net/qq_38228254/article/details/79469727)
+
 ## git
 **add -> commite -> push**
 - init
@@ -76,7 +80,7 @@
 `git push -u origin master`
 `git pull` // Tips: if conflict, first pull, solve the confliction, then push again
 
-- 遇到的坑: 我的电脑上的ssh public key绑定了dy-chenzq这个repo, 导致我想将我的Note push到github上时出现了"key is already in used错误"
+- 遇到的坑: 我的电脑上的ssh public key绑定了另一个repo, 导致我想将我的Note push到github上时出现了"key is already in used错误"
 解决方法: 
   1. 删除之前给项目绑定的ssh key, 用账户全局key代替.
   2. 新建ssh key, 建立config, 分别绑定.
@@ -220,6 +224,143 @@ MAC地址->IP地址
 通过路由选择算法选择路径到达服务器
 4. 链路层  
 通过**ARP**广播找到服务器的MAC地址, 服务器应答后即可开始传输
+
+
+## 音视频编解码基础
+包括封装技术、视频压缩编码、音频压缩编码和流媒体传输协议。  
+
+**播放网络上的视频文件时的流程**：
+![播放视频流程图](https://img-blog.csdn.net/20140201120523046?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvbGVpeGlhb2h1YTEwMjA=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
+1. 解协议(**HTTP, RTMP**, MMS etc.)
+   去除协议中的信号指令数据，**只保留音视频数据**
+2. 解封装(**MP4, RMVB, AVI** etc.)
+   将压缩编码的音视频数据**分离**成音频流和视频流
+3. 解码音视频(**AAC, H264** etc.)
+   将压缩的音视频数据解码变成**非压缩**的音视频数据.  
+   解码后, 视频数据变为**RGB, YUV420P**等颜色数据, 音频数据变成音频采样数据
+4. 音视频同步
+   同步解码出来的音视频流
+
+### 流媒体协议
+|名称|传输层协议|客户端|使用领域|
+|:--|:-----------|:-------|:-----|
+|RTSP+RTP|TCP+UDP|VLC, WMP|IPTV|
+|RTMP|TCP|Flash|互联网直播|
+|RTMFP|UDP|Flash|互联网直播+点播|
+|HTTP|TCP|Flash|互联网点播|
+
+RTSP+RTP常用于IPTV, 因为UDP可采用组播, 效率高, 缺点是网络不好的时候可能产生丢包, 影响观看质量  
+
+HTTP, RTMP这类服务因采用TCP作为传输协议, 不会发生丢包, 保证了视频的质量, 被广泛应用于互联网视频服务中
+
+### 封装格式
+|名称|流媒体支持|支持的视频格式|支持的音频编码|使用领域|
+|:----|:-----|:-----------|:-----------|:------|
+|AVI|NO |ALL               |AAC, MPEG-1 etc.|BT下载|
+|MP4|YES|MPEG-4, H.264 etc.|AAC, MPEG-1 etc.|互联网视频|
+|TS |YES|MEPG-4, H.264 etc.|AAC, MPEG-1 etc.|IPTV|
+|FLV|YES|VP6, H.264 etc.   |AAC, MP3 etc.   |互联网视频|
+|MKV|YES|ALL               |ALL             |互联网视频|
+
+### 视频编码
+[视频编码的基本原理](https://blog.csdn.net/leixiaohua1020/article/details/28114081)
+由于数据冗余和视觉冗余的存在, 使视频数据可以得到极大的压缩.一般将变换编码, 运动估计和运动补偿以及熵编码三种方式结合使用, 共同进行压缩编码
+
+|名称|推出时间|使用领域|
+|:--|:------|:-----|
+|HEVC(H.265)|2013|研发中|
+|H.264|2003|各个领域|
+|MPEG4|2001|不温不火|
+|VP9|2013|研发中|
+
+编码格式比较:HEVC > VP9 > H.264> VP8 > MPEG4 > H.263 > MPEG2。
+
+#### H264简析
+H.264原始码流（又称为“裸流”）是由一个一个的NALU组成的。他们的结构如图所示:
+![NALU结构图](https://img-blog.csdn.net/20160118001549018)
+其中每个NALU之间通过startcode（起始码）进行分隔，起始码分成两种：0x000001（3Byte）或者0x00000001（4Byte）。如果NALU对应的Slice为一帧的开始就用0x00000001，否则就用0x000001。
+H.264码流解析的步骤就是首先从码流中搜索0x000001和0x00000001，分离出NALU；然后再分析NALU的各个字段。
+
+#### YUV & RGB
+一般的视频采集芯片输出的码流都是YUV数据流, 而H.264, MPEG的编解码也是在原始的YUV码流上进行编码和解析.  
+YUV分为Y(Luminance, 明亮度), 描述灰度值, UV(Chrominance, 色度), 指定像素的颜色.如果只有Y, 无UV, 则图像也能显示, 但是只能显示为黑白图像. YUV不想RGB那样要求三个独立的视频信号同时传输, 所以占用极少的频宽.
+Y, U, V, R, G, B $\in[0, 255]$
+- YUV420
+  对每行扫描线来说，只有一种色度分量以2:1的抽样率存储。相邻的扫描行存储不同的色度分量，也就是说，如果一行是4:2:0的话，下一行就是4:0:2，再下一行是4:2:0...以此类推。
+  *EXAMPLE*
+  原始像素:
+  [Y0 U0 V0] [Y1 U1 V1] [Y2 U2 V2] [Y3 U3 V3]
+  [Y5 U5 V5] [Y6 U6 V6] [Y7U7 V7] [Y8 U8 V8]
+  存放的码流为：
+  Y0 U0 Y1 Y2 U2 Y3
+  Y5 V5 Y6 Y7 V7 Y8
+  映射出的像素点为：
+  [Y0 U0 V5] [Y1 U0 V5] [Y2 U2 V7] [Y3 U2 V7]
+  [Y5 U0 V5] [Y6 U0 V5] [Y7U2 V7] [Y8 U2 V7]
+         
+RGB则采用红绿蓝三种颜色以不同强度混合来表示图像. 红、绿、蓝三盏灯的叠加情况，中心三色最亮的叠加区为白色，加法混合的特点：越叠加越明亮。
+
+**YUV 与 RGB的互相转换**
+$
+\begin{bmatrix}
+Y \\
+U \\
+V \\
+\end{bmatrix} = 
+\begin{bmatrix}
+0.299 & 0.587 & 0.114 \\
+-0.169 & -0.331 & 0.5 \\
+0.5 & -0.419 & -0.081
+\end{bmatrix}
+\begin{bmatrix}
+R \\
+G \\
+B \\
+\end{bmatrix} +
+\begin{bmatrix}
+0 \\
+128 \\
+128 \\
+\end{bmatrix}
+$
+
+$
+\begin{bmatrix}
+R \\
+G \\
+B \\
+\end{bmatrix} = 
+\begin{bmatrix}
+1 & -0.00093 & 1.401687 \\
+1 & -0.3437 & -0.71417 \\
+1 & 1.77216 & 0.00099 
+\end{bmatrix}
+\begin{bmatrix}
+Y \\
+U-128 \\
+V-128 \\
+\end{bmatrix}
+$
+
+### 音频编码
+|名称|推出时间|使用领域|
+|:--|:------|:-----|
+|AAC|1997|各个领域|
+|MP3|1993|早期|
+|WMA|1999|微软|
+
+近些年来音频编码格式无较大创新, 说明现有的音频编码技术已经大体上满足了人们的需求.
+
+
+
+
+
+
+
+
+
+
+
 
 
 
