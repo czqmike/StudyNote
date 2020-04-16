@@ -351,9 +351,80 @@ $
 
 近些年来音频编码格式无较大创新, 说明现有的音频编码技术已经大体上满足了人们的需求.
 
+## GStreamer
+### CommondLine
+命令行无法运行， 或缺少插件？
+### gst in C
+- Basic tutorial 1
+  1. init
+    gst_init(NULL, NULL);
+  2. launch
+    pipeline = gst_parse_launch(URI, NULL);
+  3. set state
+    gst_element_set_state(pipeline, GST_STATE_PLAYING);
+    bus = gst_element_get_bus(pipeline);
+  4. loop
+    msg = gst_bus_timed_pop_filtered(bus, GST_CLOCK_TIME_NONE,
+          GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
+  5. clean up
+    gst_message_unref()
+    gst_object_unref()
+- Basic tuturial 2
+  1. create elements
+    gst_element_factory_make()
+  2. create empty pipeline
+    gst_pipeline_new()
+  3. add elements to pipeline
+    gst_bin_add_many()
+  4. link elements to each other
+    gst_element_link()
+### GObject
+- 封装
+  在GObject中, 类是实例结构体与类结构体的组合, 类结构体一般只被初始化一次, 而实例结构体初始化次数等于对象实例化次数.  
+  类数据(静态数据保存在类结构体中), 而对象数据则保存在实例结构体中.  
+  ![example_code](https://img-my.csdn.net/uploads/201207/24/1343097249_6961.png)
+  使用G_DEFINE_TYPE(GUPnPContext, gupnp_context, 
+                   GSSDP_TYPE_CLIENT);
+                   进行类的定义.
+- 继承
+  GObject通过在gupnpcontext实例中声明GSSDPClient parent来告知GObject系统GSSDPClinet是gupnpcontext的双亲, 同时通过在定义中声明  
+  GSSDPClientClassparent_class进行类结构体和实例结构体的共同声明.
+- 多态
+  GObject通过在每个子类的内存中保存了成员函数指针的虚方法表来实现多态, 在运行时会查找合适的函数指针进行覆盖.
+### DEBUG
+  - 设置环境变量GST_DEBUG
+  - Debug function
+    GST_ERROR(), GST_WARNING(), GST_INFO(), GST_LOG(), GST_DEBUG()
+    e.g.
+    > To change the category to something more meaningful, add these two lines at the top of your code:
+      `GST_DEBUG_CATEGORY_STATIC (my_category);`
+      `#define GST_CAT_DEFAULT my_category`
+    > And then this one after you have initialized GStreamer with gst_init():
+      `GST_DEBUG_CATEGORY_INIT (my_category, "my category", 0, "This is my very own");`
+  - 设置GST_DEBUG_DUMP_DOT_DIR并使用GST_DEBUG_BIN_TO_DOT_FILE(), 
+    GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS()去产生pipeline graph
+## FFmpeg
+[操作文档](http://www.ruanyifeng.com/blog/2020/01/ffmpeg.html)
+- 查看视频元信息  
+  `ffmpeg -i input.mp4 [-hide_banner]`
+- 转换编码格式
+  `ffmpeg -i input.mp4 -c:v libx264 output.mp4` 
+- 转换容器格式(不改变编码)
+  `ffmpeg -i input.mp4 -c copy output.webm`
+- 调整码率
+  `ffmpeg -i input.mp4 \  
 
+  -minrate 964K -maxrate 3856K -bufsize 2000K \  
 
-
+  output.mp4`
+- 改变分辨率
+  `ffmpeg -i input.mp4 -vf scale=480:-1 output.mp4`
+- 裁剪(提取新片断)
+  `ffmpeg -ss [start] -i [input] -t [duration] -c copy[output]` 
+  `ffmpeg -ss [start] -i [input] -to [end] -c copy [output]`
+  e.g.
+  `ffmpeg -ss 00:01:50 -i [input] -t 10.5 -c copy [output]`
+  `ffmpeg -ss 2.5 -i [input] to 10 -c copy [output]`
 
 
 
