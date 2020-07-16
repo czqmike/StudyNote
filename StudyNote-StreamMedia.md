@@ -403,6 +403,23 @@ $
       `GST_DEBUG_CATEGORY_INIT (my_category, "my category", 0, "This is my very own");`
   - 设置GST_DEBUG_DUMP_DOT_DIR并使用GST_DEBUG_BIN_TO_DOT_FILE(), 
     GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS()去产生pipeline graph
+### Plugins
+- shm: shmsink & shmsrc
+  [shm doc](https://gstreamer.freedesktop.org/data/doc/gstreamer/head/gst-plugins-bad/html/gst-plugins-bad-plugins-plugin-shm.html)
+
+  shm can share memory between progresses, it use a `shmsink` to push data and 
+  a `shmsrc` to get data. The memory is been set as property `socket-path`.
+
+  Here is a test command line below:
+  ```bash
+  ## Start shmsink
+  gst-launch-1.0 videotestsrc ! x264enc ! shmsink socket-path=/tmp/foo sync=true wait-for-connection=false shm-size=10000000
+
+  ## Start shmsrc
+  gst-launch-1.0 shmsrc socket-path=/tmp/foo ! h264parse ! avdec_h264 ! videoconvert ! ximagesink
+  ```
+
+
 ## FFmpeg
 [操作文档](http://www.ruanyifeng.com/blog/2020/01/ffmpeg.html)
 - 查看视频元信息  
@@ -426,11 +443,227 @@ $
   `ffmpeg -ss 00:01:50 -i [input] -t 10.5 -c copy [output]`
   `ffmpeg -ss 2.5 -i [input] to 10 -c copy [output]`
 
+  ## BBR
+  ### BBR概述
+  BBR(Bottleneck Bandwidth and RTT)是基于接收端反馈和发送端调节码率的拥塞控制算法。
+  > Bandwidth(带宽), RTT(Round Trip Time, 往返时延)
+
+  - BBR-BDP
+    BDP(Bandwidth Delay Product, 拥塞控制窗口)代表链路上可以存放的最大数据容量.
+    BDP = min_RTT * max_bandwidth  
+
+  *** 
+
+  ### 四种状态机
+  BBR通过4种状态机来探测RTT和Bandwidth.
+  - Startup
+    慢启动, 以固定增益系数( $2/\ln2$ )增大发包速率, 若有一轮最大瓶颈带宽没有增加25%以上, 则说明带宽已满.
+  - Drain
+    把Startup中的数据包排空.
+  - ProbeBW
+    稳定状态, 说明已经测得最大带宽, 每个包都不会产生排队现象, 大部分时间都在此状态.
+  - ProbeRTT
+    前三种状态都可能进入ProbeRTT状态, 如果超过10s未检测到更小的RTT, 则进入此状态: 把发包量降低, 测得一个较为准确的RTT.
+    测完后若带宽是满的, 则进入Startup状态, 若不满则进入ProbeBW状态.
+  ![BBR的4种状态机](https://mmbiz.qpic.cn/mmbiz_png/ibMNOojSZERvWaG3XYEAZPajoQEEQ9PicnMUptJaicQnJVk7AkjoR75m0vicyn3LJHZvVCaFoLHWMu8Ij9HiaCfBElw/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+
+### BBR概述
+[BBR算法详解](https://blog.csdn.net/dog250/article/details/52830576)
+![总体流程](https://img-blog.csdn.net/20161016152908882?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center)
+
+1. 即时带宽的计算
+   BBR作为一个纯粹的拥塞控制算法，完全忽略了系统层面的TCP状态，计算带宽时它仅仅需要两个值就够了：
+  1).应答了多少数据，记为**delivered**；
+  2).应答1)中的delivered这么多数据所用的时间，记为**interval_us**。
+  将上述二者相除，就能得到带宽：
+    > bw = delivered / interval_us
+
+2. 状态机的作用
+   4个状态机并不影响bw的计算, 仅仅影响**增益系数**的计算. 增益系数 > 1, 则可以比当前计算的bw发送更多的数据, 反之, pacing rate和cwnd要比bw计算的结果要小. 
+   在稳定状态中, 我们照常计算当前的bw, 但在计算pacing rate和cwnd的时候, 使用[5/4, 3/4, 1, 1, 1, 1]这样一个常系数列来维持bw和RTT缓慢变化.
+
+3. pacing rate 与 cwnd
+   pacing rate 与 cwnd是BBR的输出参数, cwnd规定了当前的TCP可以发送多少数据, pacing rate规定了发送这些数据的时间间隔, 以免堵塞网络. 
+   - 计算:  
+   设10轮采样内最大的bw为BW, 设当前的增益系数为G, 当前的cwnd增益系数为G' 则
+     > pacing rate = BW * G
+     > BDP = min_RTT * max_BW
+     > cwnd = BDP * G'
+     
+### BBR-BitrateAdjuster实现
+> 当前的实现: 测量BW和RTT, 然后根据BDP队列的平均值和AIMD来调整bitrate
+- 问题 
+  AIMD降得太快了, 大部分时间都在不停地调整, 45度角形成的三角形会造成最多50%的带宽浪费.
+- 分析
+  BBR本身运行在系统内核级别, 采用C实现, 可以达到统计每个ACK的精准调控.
+  而我们这个模块只能跑在推流应用层, 并且每N秒才有机会重新检测调整, 所以精度上会差一些.
+  现在BW和RTT本身的测量没有太大问题, 问题在于应该**改变Adjuster的调整策略**.
+  因为在BBR中4种状态机的存在是为了调整增益系数, 并不参与对BDP的计算中, 所以如果移植BBR, 无需对NetworkPeeker类做过多调整, 只需要在Adjuster中实现4种状态机, 再由这四种状态机完成*增益系数G*的计算, 由G去调整bitrate即可.
+  bitrate可以参照BBR的输出: pacing rate & cwnd
+
+- 四种状态机的详细参数
+  1. STARTUP
+     当BW增长缓慢时停止, 
+     > pacing_gain = 2.89, cwnd_gain = 2.89
+  2. DRAIN
+     释放在STARTUP中拥堵的包, 
+     > pacing_gain = 1.35 = 1/2.89, cwnd_gain = 2.89
+  3. PROBE_BW
+     循环常数列pacing_gain来维持合适的BW (cwnd_gain === 2)
+     > pacing_gain = [1.25, 0.75, 1, 1, 1, 1, 1, 1]
+  4. PROBW_RTT
+     如果需要, 以更慢的发送速率去适应RTT
+     > pacing_gain = 1.0
 
 
+     
+
+输入: 当前数据包状态
+输出: bitrate
+1. 测量模块
+   构造4种状态机, 测量出min_RTT和max_BW (对数据包的处理拟使用scapy)
+   问题:
+   - scapy的抓包与记录包状态 (√)
+   - 如何判断接收到的dump的时间来计算BW?
+   - 如何控制排空wipe来计算RTT?
+   - 如何计算增益系数G?
+2. 调整模块
+   根据min_RTT和max_BW, 使用AIMD动态地调整bitrate
+   `h264enc.set_property("bitrate", bitrate)`
+
+### TC - Network Emulator
+tc: netem 是 一个网络模拟功能模块。该功能模块可以用来在性能良好的局域网中,模拟出复杂的互联网传输性能,诸如低带宽、传输延迟、丢包等等情况。
+TC通过在输出端口处建立一个队列来实现流量控制.
+
+TC只能控制**发包**动作,不能控制收包动作,同时,它直接对**物理接口**生效,如果控制了物理的 eth0,那么逻辑网卡(比如 eth0:1)也会受到影响,反之,如果在逻辑网卡上做控制,该控制可能是无效的。
+
+[How to Use the Linux Traffic Control](https://netbeez.net/blog/how-to-use-the-linux-traffic-control/)
+
+*Example*
+1. 查看你的网卡信息
+  `ifconfig`
+2. 将网卡加入监控列表 
+  `sudo tc qdisc add dev eth0 root netem`
+3. 设置参数
+  - 设置延时
+  `sudo tc qdisc add dev eth0 root netem delay 200ms`
+  - 设置带宽
+  `sudo tc qdisc add dev enp5s0f1 root netem rate 300kbit 20 100 5`
+  - 设置丢包率 
+  `sudo tc qdisc change dev eth0 root netem loss 0.5% `
+  - 设置重发
+  `sudo tc qdisc change dev eth0 root netem duplicate 1%`
+  - 设置发乱序包
+  `sudo tc qdisc change dev eth0 root netem gap 5 delay 10ms`
+4. 展示已应用的规则
+  `sudo tc qdisc show dev eth0`
+5. 删除全部规则
+  `sudo tc qdisc del dev eth0 root`
+
+**Note**:
+if you have an existing rule you can change it by using `tc qdisc change…` and if you don’t have any rules you add rules with ` tc qdisc add...`
+
+## ZLMedia踩坑
+- 如何安装部署？
+  `git clone --depth 1 https://gitee.com/xiahcu/ZLMediaKit`
+  `cd ZLMediaKit`
+  `git submodule update --init`
+  `sh sh build_for_linux.sh`
+- 如何启动运行？
+  > 启动Server
+  `sudo ~/ZLMediaKit/release/linux/Debug/MediaServer`
+  `sudo ~/ZLMediaKit/release/linux/Debug/MediaServer --ssl ~/ZLMediaKit/release/linux/Debug/czqmike-server.cn.pem` 
+  > 推流RTSP
+  `sudo ffmpeg -re -stream_loop -1 -i "/home/czq/Videos/1280.mp4" -vcodec h264 -acodec aac -f rtsp -rtsp_transport tcp rtsp://192.168.216.3/live/test`
+  > 推流RTMP
+  `sudo ffmpeg -re -stream_loop -1 -i "/home/czq/Videos/1280.mp4" -vcodec h264 -acodec aac -f flv rtmp://192.168.216.3/live/test`
+  > 推流RTMPS
+  `sudo ffmpeg -re -stream_loop -1 -i "/home/czq/Videos/1280.mp4" -vcodec h264 -acodec aac -f flv rtmps://czqmike-server.cn:19350/live/test`
+- 推流RTMP 1280P卡顿如何解决
+  虚拟机CPU资源过少，添加CPU资源可解决
+
+- 如何应用SSL加密RTMP
+  1. [创建SSL证书](https://www.jianshu.com/p/eaad77ed1c1b)
+  2. 在启动选项后加上 -s path-to-ssl.pem
+  3. [在Server上安装证书](https://www.cnblogs.com/rader/p/3781880.html)
+  
+  **FAIL**
+  [tls @ 0x55844f4ea160] A TLS fatal alert has been received.
+  [rtmps @ 0x55844f4e12a0] Cannot open connection tls://192.168.216.3:19350
+  rtmps://192.168.216.3:19350/live/test: Input/output error
 
 
+- 性能对比SRS
+  [详细测试报告](https://github.com/xiongziliang/ZLMediaKit/wiki/Benchmark)
+  ZLMedia 推RTMP时, CPU占用总体上为SRS的2倍左右, 内存占用则为SRS的2.3倍左右 
 
+## SRS学习 
+### 部署
+`cd srs && docker build -t srs .`
+
+### 启动本地SRS服务
+`docker run --rm -it --net=host srs bash`
+`cd /usr/local/srs && ./objs/srs -c conf/srs.conf`
+
+## TypeScript
+[offical tutorial](https://www.typescriptlang.org/docs/home.html)
+### Basic Type
+- Boolean
+`let isDone: boolean = false;`
+- Number
+`let decimal: number = 6;`
+- String
+`let color: string = "blue";`
+- Array
+`let list: number[] = [1, 2, 3];`
+- Tuple
+`let x: [string, number];`
+`x = ["hello", 10];`
+- Enum
+`enum Color {Red, Green, Blue}`
+`let c: Color = Color.Green;`
+- Any
+`let notSure`
+- Void
+`let unusable: void = undefined;`
+Declaring variables of type `void` is not useful 
+because you can only assign `null` or `undefined` to them
+- Null & Undefine
+subtypes of all other type
+`let u: undefined = undefined;`
+`let n: null = null;`
+- Never
+`never` is the return type for a function or one that never returns
+- Object
+```typescript
+declare function create(o: object | null): void;
+
+create({ prop: 0 });
+create(null);
+```
+### loop
+- forEach
+```ts
+var myArray = [1, 2, 3, 4];
+myArray.name = "daocheng";
+
+myArray.forEach(value => console.log(value));
+// Can't break
+```
+
+- for in
+```ts
+for (var n in myArray) {
+  console.log(n)
+} // 1 2 3 4
+```
+
+- for of 
+```ts
+for (var n of myArray) {
+  console.log(n)
+} // 1 2 3 4
+```
 
 
 
