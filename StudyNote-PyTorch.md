@@ -81,8 +81,8 @@ conda env list
 
   Tensor with GPU
   ```python
-  # Below codes can only run with PyTorch-GPU
-  if torch.cuda.isavailable():
+  # Below codes CAN ONLY run with PyTorch-GPU
+  if torch.cuda.is_available():
     gpu = torch.device("cuda")
     y = torch.ones_like(x, device=gpu) # y is in gpu
     x = x.to(gpu)
@@ -91,10 +91,79 @@ conda env list
     print(z.to("cpu", torch.double))
   ```
 
+- 梯度 (gradient)
+  Tensor是这个包的核心类，如果将其属性`.requires_grad`设置为`True`，它将开始追踪(track)在其上的所有操作（这样就可以利用链式法则进行梯度传播了）。完成计算后，可以调用`.backward()`来完成所有梯度计算。此`Tensor`的梯度将累积到`.grad`属性中。`.detach()`可以阻止追踪
+  e.g.
+  创建一个Tensor并设置requires_grad=True:
+  ```python
+  x = torch.ones(2, 2, requires_grad=True)
+  print(x)
+  print(x.grad_fn)
+  ```
+  做运算操作
+  ```python
+  y = x + 2
+  print(y)
+  print(y.grad_fn)
+  ```
+  > 注意x是直接创建的，所以它没有`grad_fn`, 而y是通过一个加法操作创建的，所以它有一个为\<AddBackward>的`grad_fn`
 
+  像x这种直接创建的被称为叶子节点, 叶子节点的`grad_fn`为`None`
+  ```python
+  print(x.is_leaf) # True
+  print(y.is_leaf) # False
+  ```
 
+  通过`.requires_grad_()`来改变requires_grad属性
+  ```python
+  a = torch.randn(2, 2) # Default requires_grad = False
+  print(a.requires_grad) # False
+  a.requires_grad_(True)
+  print(a.requires_grad) # True
+  ```
 
+  backward()自动计算梯度(grad)
+  ```python
+  x = torch.ones(2, 2, requires_grad=True) # x: [ [1, 1], [1, 1]]
+  y = x + 2  # y: [ [3, 3], [3, 3]]
+  z = y**2 * 3 # z: [ [27, 27], [27, 27]]
+  z_mean = z.mean() # z_mean: [27]
+  # z_mean 为一个标量, 所以无需指定求导变量
+  z_mean.backward() # <=> out.backward(torch.tensor(1.))
+  print(x.grad) # [ [4.5, 4.5], [4.5, 4.5]]
+  ```
 
+  如果我们想要修改`tensor`的数值，但是又不希望被`autograd`记录（即不会影响反向传播），那么我么可以对`tensor.data`进行操作。
+  ```python
+  x = torch.ones(1, requires_grad=True)
+
+  print(x.data) # x.data is a tensor [1]
+  print(x.data.requires_grad) # False
+
+  y = x * 2
+  x.data *= 100 # Only changes x's value, DO NOT backward.
+
+  y.backward()
+  print(x) # x: [100]
+  print(x.grad) # 2
+  ```
+
+## 3. DL基础
+### 线性回归的基本要素
+- 模型
+设房屋的面积为$x1$, 房龄为$x2$, 售出面积为$y$, 我们需要建立$y$关于$x1$, $x2$的表达式, 也即是模型 (model)
+- 训练数据
+通过数据来寻找特定的模型参数值，使模型在数据上的误差尽可能小。这个过程叫作模型训练 (model training)
+- 损失函数
+在机器学习里，将衡量误差的函数称为损失函数 (loss function)
+- 优化算法
+当模型和损失函数形式较为简单时，上面的误差最小化问题的解可以直接用公式表达出来。这类解叫作解析解（analytical solution）。
+线性回归和平方误差刚好属于这个范畴。然而，大多数深度学习模型并没有解析解，只能通过优化算法有限次迭代模型参数来尽可能降低损失函数的值。这类解叫作数值解（numerical solution）。
+
+### 线性回归的表示方法
+![线性回归神经网络图](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter03/3.1_linreg.svg)
+如图, 线性回归是个单层神经网络, 在线性回归中, $o$的计算完全依赖于$x1$和$x2$. 
+所以, 这里的输出层又叫全连接层 (fully-connected layer)或稠密层 (dense layer)
 
 
 
