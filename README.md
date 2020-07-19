@@ -1,2 +1,2 @@
 # StudyNote
-Notes of git commonds, markdown, computer network, stream media and more..
+Notes of deep learning, git commonds, markdown, computer network, stream media and more..

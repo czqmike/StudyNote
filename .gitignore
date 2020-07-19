@@ -1,1 +1,2 @@
 /GStreamer/*
+/PyTorch/__pycache__/*

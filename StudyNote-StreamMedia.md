@@ -41,6 +41,10 @@
 - math
 [markdown_math](https://www.jianshu.com/p/e74eb43960a1)
 [markdown_matrix](https://blog.csdn.net/qq_38228254/article/details/79469727)
+  - superscript & subscript
+  Use "^" / "_" to set a super / sub script, multi script needs been quoted by "{}"
+  such as $X^4$ $X_1$ $Y_{12}$
+  
 
 ## git
 **add -> commite -> push**

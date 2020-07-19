@@ -149,22 +149,57 @@ conda env list
   ```
 
 ## 3. DL基础
-### 线性回归的基本要素
-- 模型
-设房屋的面积为$x1$, 房龄为$x2$, 售出面积为$y$, 我们需要建立$y$关于$x1$, $x2$的表达式, 也即是模型 (model)
-- 训练数据
-通过数据来寻找特定的模型参数值，使模型在数据上的误差尽可能小。这个过程叫作模型训练 (model training)
-- 损失函数
-在机器学习里，将衡量误差的函数称为损失函数 (loss function)
-- 优化算法
-当模型和损失函数形式较为简单时，上面的误差最小化问题的解可以直接用公式表达出来。这类解叫作解析解（analytical solution）。
-线性回归和平方误差刚好属于这个范畴。然而，大多数深度学习模型并没有解析解，只能通过优化算法有限次迭代模型参数来尽可能降低损失函数的值。这类解叫作数值解（numerical solution）。
+### 线性回归 (Linear Regression)
+- 线性回归的基本要素
+  - 模型
+  设房屋的面积为$x1$, 房龄为$x2$, 售出面积为$y$, 我们需要建立$y$关于$x1$, $x2$的表达式, 也即是模型 (model)
+  - 训练数据
+  通过数据来寻找特定的模型参数值，使模型在数据上的误差尽可能小。这个过程叫作模型训练 (model training)
+  - 损失函数
+  在机器学习里，将衡量误差的函数称为损失函数 (loss function)
+  - 优化算法
+  当模型和损失函数形式较为简单时，上面的误差最小化问题的解可以直接用公式表达出来。这类解叫作解析解（analytical solution）。
+  线性回归和平方误差刚好属于这个范畴。然而，大多数深度学习模型并没有解析解，只能通过优化算法有限次迭代模型参数来尽可能降低损失函数的值。这类解叫作数值解（numerical solution）。
 
-### 线性回归的表示方法
-![线性回归神经网络图](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter03/3.1_linreg.svg)
-如图, 线性回归是个单层神经网络, 在线性回归中, $o$的计算完全依赖于$x1$和$x2$. 
-所以, 这里的输出层又叫全连接层 (fully-connected layer)或稠密层 (dense layer)
+- 线性回归的表示方法
+  ![线性回归神经网络图](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter03/3.1_linreg.svg)
+  如图, 线性回归是个单层神经网络, 在线性回归中, $o$的计算完全依赖于$x1$和$x2$. 
+  所以, 这里的输出层又叫全连接层 (fully-connected layer)或稠密层 (dense layer)
 
+- 从0开始手撸线性回归
+  即只用`Tensor`和`autograd`实现线性回归的训练
+  见[`Source Code: LinearRegressTest.py`](PyTorch/LinearRegressTest.py)
+
+- 线性回归简洁实现
+  见[`Source Code: LinearRegressTestSimple.py`](PyTorch/LinearRegressTestSimple.py)
+
+  > ***总结***
+  **一般过程**:
+  `准备数据集`->`读入数据` -> `定义模型` -> `初始化模型参数` -> `定义损失函数` -> `定义优化算法` -> `训练`
+  **PyTorch框架对应**:
+  `torch.utils.data`: 数据处理相关
+  `torch.nn`: 神经网络的层
+  `torch.nn.init`: 模块的初始化方法
+  `torch.optim`: 优化算法
+
+### Softmax回归
+- 简介
+  softmax回归同线性回归一样是个单层神经网络, 由于输出$o_1, o_2, o_3$的计算依赖于所有输入$x_1, x_2, x_3, x_4$, 故softmax回归的输出层也是个全连接层.
+  softmax回归也将输入特征与权重做线性叠加. 不同点在于, softmax回归的输出值个数等于标签中的类别数.
+  ![softmax回归神经网络图](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter03/3.4_softmaxreg.svg)
+
+  > e.g.
+  $o_1 = x_1w_{11} + x_2w_{21} + x_3w_{31} + x_4w{41} + b_1, $
+  $o_2 = x_1w_{12} + x_2w_{22} + x_3w_{32} + x_4w{42} + b_2, $
+  $o_3 = x_1w_{13} + x_2w_{23} + x_3w_{33} + x_4w{43} + b_3. $
+
+  softmax运算符 (softmax operator)将输出层的输出值变为值为正且和为1的概率分布:
+  $$y'_1, y'_2, y'_3 = softmax(o_1, o_2, o_3)$$
+  其中
+  $$y'_1 = { {exp(o_1)} \over {\sum^3_{i=1} exp(o_i)} },  
+    y'_2 = { {exp(o_2)} \over {\sum^3_{i=1} exp(o_i)} }, 
+    y'_3 = { {exp(o_3)} \over {\sum^3_{i=1} exp(o_i)} }
+  $$
 
 
 
