@@ -190,9 +190,9 @@ conda env list
   ![softmax回归神经网络图](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter03/3.4_softmaxreg.svg)
 
   > e.g.
-  $o_1 = x_1w_{11} + x_2w_{21} + x_3w_{31} + x_4w{41} + b_1, $
-  $o_2 = x_1w_{12} + x_2w_{22} + x_3w_{32} + x_4w{42} + b_2, $
-  $o_3 = x_1w_{13} + x_2w_{23} + x_3w_{33} + x_4w{43} + b_3. $
+  $o_1 = x_1w_{11} + x_2w_{21} + x_3w_{31} + x_4w_{41} + b_1, $
+  $o_2 = x_1w_{12} + x_2w_{22} + x_3w_{32} + x_4w_{42} + b_2, $
+  $o_3 = x_1w_{13} + x_2w_{23} + x_3w_{33} + x_4w_{43} + b_3. $
 
   softmax运算符 (softmax operator)将输出层的输出值变为值为正且和为1的概率分布:
   $$y'_1, y'_2, y'_3 = softmax(o_1, o_2, o_3)$$
@@ -208,8 +208,7 @@ conda env list
 
 ### 交叉熵损失函数 (cross entropy loss funtion)
   衡量两个概率分布差异的方法.即不用判断概率达到某值, 而是A概率比B, C都高即可.
-  <!-- $${H(y^{(i)}, \hat{y}^{(i)})} = -{\sum ^{q}_{j=1} y^{(i)}_{j}\log{\hat{y}^{(i)}_{j}} }$$ -->
-  ![Cross Entropy](https://render.githubusercontent.com/render/math?math={H(y^{(i)},%20\hat{y}^{(i)})}%20=%20-{\sum%20^{q}_{j=1}%20y^{(i)}_{j}\log{\hat{y}^{(i)}_{j}}%20})
+  $${H(y^{(i)}, \hat{y}^{(i)})} = -{\sum ^{q}_{j=1} y^{(i)}_{j}\log{\hat{y}^{(i)}_{j}} }$$
 
 
 
