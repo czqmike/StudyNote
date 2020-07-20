@@ -1,2 +1,3 @@
 /GStreamer/*
 /PyTorch/__pycache__/*
+/PyTorch/Datasets/*

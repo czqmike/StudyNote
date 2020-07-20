@@ -23,6 +23,7 @@ conda env list
 ```
 
 # 动手学DL(PyTorch版)
+![书籍结构](http://zh.d2l.ai/_images/book-org.svg)
 
 ## 1. 简介
 - "用数据编程"
@@ -200,6 +201,15 @@ conda env list
     y'_2 = { {exp(o_2)} \over {\sum^3_{i=1} exp(o_i)} }, 
     y'_3 = { {exp(o_3)} \over {\sum^3_{i=1} exp(o_i)} }
   $$
+
+- 实现
+  见[`Source Code: SoftmaxTest.py`](PyTorch/SoftmaxTest.py) 和
+  见[`Source Code: SoftmaxTestSimple.py`](PyTorch/SoftmaxTestSimple.py)
+
+### 交叉熵损失函数 (cross entropy loss funtion)
+  衡量两个概率分布差异的方法.即不用判断概率达到某值, 而是A概率比B, C都高即可.
+  <!-- $${H(y^{(i)}, \hat{y}^{(i)})} = -{\sum ^{q}_{j=1} y^{(i)}_{j}\log{\hat{y}^{(i)}_{j}} }$$ -->
+  ![Cross Entropy](https://render.githubusercontent.com/render/math?math={H(y^{(i)},%20\hat{y}^{(i)})}%20=%20-{\sum%20^{q}_{j=1}%20y^{(i)}_{j}\log{\hat{y}^{(i)}_{j}}%20})
 
 
 
