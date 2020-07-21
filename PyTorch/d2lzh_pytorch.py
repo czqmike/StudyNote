@@ -69,8 +69,8 @@ def load_data_fashion_mnist(batch_size=256, num_workers=4):
                 shuffle=False, num_workers=num_workers)
     return train_iter, test_iter
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu'))
-# device = torch.device(torch.device('cpu'))
+# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device(torch.device('cpu'))
 
 def evaluate_accuracy(data_iter, net):
     acc_sum, n = 0.0, 0
@@ -112,7 +112,7 @@ def train_ch3(net, train_iter, test_iter, loss, num_epochs, batch_size,
             n += y.shape[0]
         test_acc = evaluate_accuracy(test_iter, net)
         duration = time.time() - startTime
-        print('epoch %d, loss %.4f, train acc %.3f, test acc %.3f, time %.3f'
+        print('epoch %d, loss %.4f, train acc %.3f, test acc %.3f, time %.3f sec'
               % (epoch + 1, train_l_sum / n, train_acc_sum / n, test_acc, duration))
 
 class FlattenLayer(torch.nn.Module):
@@ -120,3 +120,16 @@ class FlattenLayer(torch.nn.Module):
         super(FlattenLayer, self).__init__()
     def forward(self, x): # x shape: (batch, *, *, ...)
         return x.view(x.shape[0], -1)
+
+def semilogy(x_vals, y_vals, x_label, y_label, x2_vals=None, y2_vals=None,
+             legend=None, figsize=(3.5, 2.5), timeParsed=10):
+    # d2l.set_figsize(figsize)
+    d2l.plt.xlabel(x_label)
+    d2l.plt.ylabel(y_label)
+    d2l.plt.semilogy(x_vals, y_vals)
+    if x2_vals and y2_vals:
+        d2l.plt.semilogy(x2_vals, y2_vals, linestyle=':')
+        d2l.plt.legend(legend)
+    plt.show(block=False)
+    plt.pause(timeParsed)
+    plt.close()
