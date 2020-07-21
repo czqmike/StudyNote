@@ -206,9 +206,290 @@ conda env list
   见[`Source Code: SoftmaxTest.py`](PyTorch/SoftmaxTest.py) 和
   见[`Source Code: SoftmaxTestSimple.py`](PyTorch/SoftmaxTestSimple.py)
 
-### 交叉熵损失函数 (cross entropy loss funtion)
+- 交叉熵损失函数 (cross entropy loss funtion)
   衡量两个概率分布差异的方法.即不用判断概率达到某值, 而是A概率比B, C都高即可.
   $${H(y^{(i)}, \hat{y}^{(i)})} = -{\sum ^{q}_{j=1} y^{(i)}_{j}\log{\hat{y}^{(i)}_{j}} }$$
+
+### 多层感知机 (MultiLayer Perceptron, MLP)
+- 简介
+  多层感知机即在单层神经网络的基础上引入了一个到多个隐藏层 (hidden layer)的网络结构.
+  如图所示的多层感知机中包含5个隐藏单元(hidden unit), 隐藏层和输出全连接层.
+  ![MLP Example](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter03/3.8_mlp.svg)
+
+- 激活函数
+  多个线性函数的叠加 (多个简单隐藏层)会导致仍然为一个线性函数.为了避免这种情况, 需要对隐藏变量使用非线性函数. 被称为激活函数 (activation function).
+
+  常用的激活函数有:
+  1. ReLU (Rectified Linear Unit)函数
+  给定元素x, 该函数定义为
+  $$ ReLU(x) = max(x, 0). $$
+  即**保留正数**元素, 并将**负数元素清0**.
+  ReLU:
+  ![ReLU Example](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter03/3.8_relu.png)
+
+  ReLU gradient:
+  ![ReLU grad](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter03/3.8_relu_grad.png)
+
+  2. sigmoid函数
+  sigmoid将元素x变换到 **0~1**, 定义:
+  $$ sigmoid(x) = {1 \over {1+exp(-x)}} $$
+
+  sigmoid example:
+  ![sigmoid example](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter03/3.8_sigmoid.png)
+
+  且sigmoid的导函数为:
+  $$ sigmoid'(x) = sigmoid(x)(1 - sigmoid(x)). $$
+  这个导函数值域为 (0, 0.25], 且越接近0越大, sigmoid'(0)=max=0.25
+  ![sigmoid grad](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter03/3.8_sigmoid_grad.png)
+
+  3. tanh函数
+  tanh (双曲正切) 将元素的值变换到 **-1~1** 之间:
+  $$ tanh(x) = { {1-exp(-2x)} \over {1+exp(-2x)} }. $$
+  ![tanh example](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter03/3.8_tanh.png)
+
+  tan导函数:
+  $$ tanh'(x) = 1- tanh^2(x). $$
+
+  ![tanh grad](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter03/3.8_tanh_grad.png)
+
+- MLP定义
+  MLP的隐藏层通过激活函数进行变换, MLP的层数和隐藏层中的隐藏单元个数为超参数.
+  MLP定义如下:
+  $$ H = \phi{( XW_h + b_h )}, $$
+  $$ O = HW_o + b_o, $$
+  其中 $\phi$ 表示激活函数, $O$ 为输出. 分类时可以对$O$做softmax预案算, 并使用softmax回归中的交叉熵损失函数.
+
+## 4.深度学习计算
+
+### 模型构造
+- 继承`Module`类来构造
+  需要重载`Module.__init__()`, `Module.forward()`
+  e.g.
+  ```python
+  import torch
+  import torch.nn as nn
+  class MLP(nn.Module):
+    def __init__(self):
+      super(MLP, self).__init__()
+      self.hidden = nn.Linear(784, 256)
+      self.act = nn.ReLU()
+      self.output = nn.Linear(256, 10)
+    
+    def forward(self, x):
+      a = self.act(self.hidden(x))
+      return self.output(a)
+
+  ## Use
+  X = torch.rand(2, 784)
+  net = MLP()
+  print(net)
+  net(X)
+  ```
+- 直接使用预构建好的类
+  - Sequential
+    net = Sequential(
+      nn.Linear(784, 256),
+      nn.ReLU(),
+      nn.Linear(256, 10)
+    )
+
+  - ModuleList 
+    ```python
+    ## Use
+    net = nn.ModuleList([nn.Linear(784, 256), nn.ReLU()])
+    net.append(nn.Linear(256, 10))
+    print(net[-1])
+    print(net)
+    ```
+    **P.S**
+    `ModuleList`仅仅是一个存储各种模块的列表, 模块之间没有联系也没有顺序, 需要自己实现`forward()`, 所以直接执行`net(X)`会报错.
+    而`Sequantial`内的模块要按顺序排列, `forward()`功能已经实现.
+
+  - ModuleDict
+    `ModuleDict`接收一个子模块的字典作为输入, 可以用key访问
+    ```python
+    net = nn.ModuleDict({
+      'linear' : nn.Linear(784, 256),
+      'act' : nn.ReLU()
+    })
+    net['output'] = nn.Linear(256, 10)
+    print(net['linear'])
+    print(net.output)
+    print(net)
+    ```
+
+- 构建灵活复杂的模型
+`get_constant()`可以创建不被迭代的常参数
+
+e.g.
+```python
+  import torch
+  import torch.nn as nn
+  class FancyMLP(nn.Module):
+    def __init__(self, **kwargs):
+      super(FancyMLP, self).__init__(**kwargs)
+
+      self.rand_weight = torch.rand((20, 20), requires_grad=False)
+      self.linear = nn.Linear(20, 20)
+
+    def forward(self, x):
+      x = self.linear(x)
+      x = nn.functional.relu(torch.mm(x, self.rand_weight.data) + 1)
+
+      # Reuse full connect layer.
+      x = self.linear(x)
+      # Get scalar to compare.
+      while x.norm().item() > 1:
+        x /= 2
+      if x.norm().item() < 0.8:
+        x *= 10
+      return x.sum()
+
+  ## Use
+  X = torch.rand(2, 20)
+  net = FancyMLP()
+  print(net)
+  net(X)
+```
+### 模型参数的访问, 初始化
+- `parameters()`, `named_parameters()`
+  前者可以返回参数, 后者返回参数与参数名
+  ```python
+  for name, param in net.named_parameters():
+    print(name, param.size())
+  ```
+- `init.normal_()`
+  nn.init.normal_()可以用来初始化模型参数:
+  ```python
+  for name, param in net.named_parameters():
+    if 'weight' in name:
+      init.normal_(param, mean=0, std=0.01)
+  ```
+  或者使用参数来初始化:
+  ```python
+  for name, param in net.named_parameters():
+    if 'bias' in name:
+      init.constant_(param, val=0)
+  ```
+
+### 自定义层
+  - 不含模型参数
+    ```python
+    class CenteredLayer(nn.Module):
+      def __init__(self, **kwargs):
+        super(CenteredLayer, self).__init__(**kwargs)
+      def forward(self, x):
+        return x - x.mean()
+    
+    ## Instantiate layer.
+    layer = CenteredLayer()
+    layer(torch.tensor([1, 2, 3, 4]), dtype=torch.float)
+
+    ## Or be used to construct another model.
+    net = nn.Sequential(nn.Linear(8, 128), CenteredLayer())
+    ```
+  
+  - 含模型参数
+    ```python
+    class MyDense(nn.Module):
+      def __init__():
+        super(MyDense, self).__init__()
+        self.params = nn.ParameterList([nn.Parameter(torch.randn(4, 4))
+                                        for i in range(3)])
+        self.params.append(nn.Parameter(torch.randn(4, 1)))
+
+      def forward(self, x):
+        for i inrange(len(self.params)):
+          x = torch.mm(x, self, params[i])
+        return x
+      
+    net = MyDense()
+    print(net)
+    ```
+
+### 读取与存储
+  - 读写Tensor
+  Write 
+  `torch.save(x, 'x.pt')`
+  Read
+  `x = torch.load('x.pt')` 
+
+  - 读写model
+    1. 读写权重`state_dict`
+      Write
+      `torch.save(model.state_dict(), 'dict.pt')`
+      Read
+      `model = MyModel()`
+      `model.load_state_dict(torch.load('dict.pt'))`
+    
+    2. 读写整个模型
+      Write
+      `torch.save(model, 'net.pt')`
+      Read
+      `model = torch.load('net.pt')`
+
+### GPU相关
+  - GPU是否可用
+  `torch.cuda.is_available()`
+  - 转换到GPU
+  `x = torch.tensor([1, 2, 3])`
+  `x = x.cuda(0)`
+  Or
+  `x = torch.tensor([1, 2, 3], device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))`
+
+  **P.S.**
+  `x.to(device)`这个方法为**Non-InReplace**方法,即赋值后才生效
+
+## 6.循环神经网络 
+(Recurrent Neural Network, RNN)
+
+### 语言模型
+- 定义
+  $$ P(w_1, w_2, ..., w_T) = { \prod^{T}_{t=1}P(w_t | w_1, ..., w_{t-1}) }. $$
+
+  e.g. 一段含有三个字的文本序列的概率
+  $$ P(w_1, w_2, w_3) = P(w_1)P(w_2 | w_1)P(w_3 | w_1, w_2). $$
+
+- n元语法
+  通过n阶马尔科夫链简化语言模型的计算, 即假设一个词的出现只与前面的n个词相关.
+
+  e.g.
+  n = 1时, 有
+  $$ P(w_3 | w_1, w_2) = P(w_3 | w_2) $$
+
+  注: n较小时, n元语法往往不准确.当n较大时, n元语法需要存储大量的词频和相邻概率.
+
+### 循环神经网络
+现有一个含单隐藏层的MLP, 将通过添加隐藏状态将其变为循环神经网络:
+$$ H = \phi(XW_{xh} + b_h) $$
+隐藏层权重参数为$ W_{xh} $, 隐藏层偏差参数为$ b_h $
+其输出层输出为:
+$$ O = HW_{hq} + b_q $$
+若是分类问题, 可以使用softmax(O)来计算输出类别的概率分布.
+***
+
+考虑输入数据存在时间相关性的情况:
+$$ H_t = { \phi(X_tW_{xh} + H_{t-1}W_{hh} + b_h) } $$
+保存上一时间步的隐藏变量$ H_{t-1} $, 并引入新的权重参数$ W_{hh} $来描述如何使用$ H_{t-1} $
+
+在时间步t, 输出层的输出类似:
+$$ O_t = H_tW_{hq} + b_q $$
+
+**注**:
+即使在不同时间步, 循环神经网络也四种使用这些模型参数. 即, RNN的模型参数不随时间步的增加而增长.
+
+如图为RNN在3个相邻时间步的计算逻辑. 
+在时间t时, 相当于将输入$ X_t $和$ H_{t-1} $连结后输入一个激活函数为$\phi$的全连接层.此全连接层的输出为$H_{t+1}$
+![rnn_example](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter06/6.2_rnn.svg)
+
+- 字符级循环神经网络
+(character-level RNN)
+  设样本序列为"想要有直升机". 在训练时, 
+  对**每个时间步**的输出层输出使用**softmax运算**, 然后使用**交叉熵损失函数**计算它与标签的误差.  
+
+  对于时间步3, 输出$O_3$取决于基于"想", "要", "有"生成下一个词的概率分布与该时间步的标签"直"
+  ![chara_rnn](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter06/6.2_rnn-train.svg)
+
 
 
 
