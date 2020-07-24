@@ -490,6 +490,101 @@ $$ O_t = H_tW_{hq} + b_q $$
   对于时间步3, 输出$O_3$取决于基于"想", "要", "有"生成下一个词的概率分布与该时间步的标签"直"
   ![chara_rnn](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter06/6.2_rnn-train.svg)
 
+- one-hot向量
+  将字符转化为向量输入到神经网络中的简易方法
+  e.g.
+  根据字符的index生成list如: [1, 0, 2] # ['你', '是', '谁']
+  生成的one-hot向量如: 
+  [[0, 1, 0], 
+   [1, 0, 0],
+   [0, 0, 1]]
+
+- 困惑度 (perplexity)
+  模型的预测结果与样本的契合程度, 困惑度越**低**契合越准确.
+  Perplexity可以认为是average branch factor（平均分支系数）.
+  模型的PPL下降到90，可以直观地理解为，在模型生成一句话时下一个词有90个合理选择，可选词数越少，我们大致认为模型越准确。
+  *任何一个有效模型的困惑度必须小于类别个数.*
+
+- 实现
+  见[`Source Code: RNNTest.py`](PyTorch/RNNTest.py) 和
+  见[`Source Code: RNNTestSimple.py`](PyTorch/RNNTestSimple.py)
+
+- RNN中的随时间反向传播和梯度消失 / 爆炸
+(Back-Propagation Through Time, BPTT)
+[ref](https://www.cnblogs.com/shixiangwan/p/9289862.html)
+  1. BPTT是什么
+  ![BPTT_example](https://images2018.cnblogs.com/blog/1022856/201807/1022856-20180710165447190-111546433.png)
+  对于$E_3$的偏导, 有如下推导过程:
+  $$ \frac { \partial { E }_{ 3 } }{ \partial W } =\frac { \partial { E }_{ 3 } }{ \partial { \hat { y }  }_{ 3 } } \frac { \partial { \hat { y }  }_{ 3 } }{ \partial { s }_{ 3 } } \frac { \partial { s }_{ 3 } }{ \partial W } \\ =\sum _{ k=0 }^{ 3 }{ \frac { \partial { E }_{ 3 } }{ \partial { \hat { y }  }_{ 3 } } \frac { \partial { \hat { y }  }_{ 3 } }{ \partial { s }_{ 3 } } \frac { \partial { s }_{ 3 } }{ \partial { s }_{ k } } \frac { \partial { s }_{ k } }{ \partial W }  }  \tag{4} $$
+  这就是BPTT的计算方式, 由于需要对各时间步求和, 而序列又可能很长, 所以会出现RNN难以训练的问题.
+
+  2. 梯度消失 / 爆炸问题
+    将上式重写为:
+    $$ \frac { \partial { E }_{ 3 } }{ \partial W } =\sum _{ k=0 }^{ 3 }{ \frac { \partial { E }_{ 3 } }{ \partial { \hat { y }  }_{ 3 } } \frac { \partial { \hat { y }  }_{ 3 } }{ \partial { s }_{ 3 } } \left( \prod _{ j=k+1 }^{ 3 }{ \frac { \partial { s }_{ j } }{ \partial { s }_{ j-1 } }  }  \right) \frac { \partial { s }_{ k } }{ \partial W }  }   \tag{6} $$
+
+    由于激活函数为tanh, 其图像与导函数图像如下:
+    ![tanh_graph](https://images2018.cnblogs.com/blog/1022856/201807/1022856-20180710171446369-176705843.png)
+
+    可以看到, tanh的两端都有接近0的导数, 参数矩阵将快速收敛到0, 即梯度消失.
+
+    当参数矩阵的值很大时, 权重将变为NaN, 即梯度爆炸.
+
+    > P.S.
+      对于梯度消失, 可以采用ReLU函数代替tanh作为激活函数, 或是采用LSTM或GRU架构.
+      对于梯度爆炸, 可以采用梯度剪切 (超过阈值时重设)
+
+### 门控循环单元 (GRU)
+(Gated Recurrent Unit, GRU)
+  - 重置门和更新门
+  ![reset gate, update gate](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter06/6.7_gru_1.svg)
+  如图, GRU中的重置门与更新门的输入为时间步输入$X_t$与上一时间步隐藏状态$H_{t-1}$, 输出由激活函数为sigmoid的全连接层得到.
+  其中, 
+  $$ R_t = \sigma(X_tW_{xr} + H_{t-1}W_{hr} + b_r), $$
+  $$ Z_t = \sigma(X_tW_{xz} + H_{t-1}W_{hz} + b_z), $$
+  因为$sigmoid()$的值域为[0, 1], 所以$$R_t, Z_t$均在[0, 1]
+
+  - 候选隐藏状态
+  ![隐藏候选状态](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter06/6.7_gru_2.svg)
+  通过重置门的输出来决定保留多少来自上一时间步的隐藏状态, 再讲通过tanh计算出候选隐藏状态输出.值域为[-1, 1]
+  用公式表达为:
+  $$ \tilde{H_t} = tanh(X_tW_{xh} + (R_t \bigodot H_{t-1})W_{hh} + b_h), $$
+
+  - 隐藏状态
+  ![隐藏状态](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter06/6.7_gru_3.svg)
+  最后当前时间步的$H_t$为:
+  $$ H_t = {Z_t} \bigodot {H_{t-1}} + (1-{Z_t}) \bigodot {\tilde{H_t}}. $$
+
+  > 总结:
+    - 重置门有助于捕捉**短期**内的依赖关系
+    - 更新门有助于捕捉**长期**内的依赖关系
+
+### 长短期记忆 (LSTM)
+  (Long Short-Term Memory, LSTM)
+  - 输入门, 遗忘门, 输出门
+  ![LSTM-1](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter06/6.8_lstm_0.svg)
+  输入: $X_t, H_{t-1} $
+  输出: $F_t, I_t, O_t \in [0, 1]$
+  公式如下:
+  $$ I_t = \sigma(X_tW_{xi} + H_{t-1}W_{hi} + b_i), \in [0, 1] $$
+  $$ F_t = \sigma(X_tW_{xf} + H_{t-1}W_{hf} + b_f), \in [0, 1] $$
+  $$ O_t = \sigma(X_tW_{xo} + H_{t-1}W_{ho} + b_o), \in [0, 1] $$
+
+  - 候选记忆细胞
+  ![LSTM-2](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter06/6.8_lstm_1.svg)
+  候选记忆细胞为$ \tilde{C_t} $:
+  $$ \tilde{C_t} = tanh(X_tW_{xc} + H_{t-1}W_{hc} + b_c), \in [-1, 1]$$
+
+  - 记忆细胞
+  ![LSTM-3](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter06/6.8_lstm_2.svg)
+  $$ C_t = F_t \bigodot C_{t-1} + I_t \bigodot \tilde{C_t}. $$
+  > 此处如果将遗忘门$F_t$近似1, 并将输入门$I_t$近似0, 就可以记忆更长时间步的信息.
+
+  - 隐藏状态
+  ![LSTM-4](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter06/6.8_lstm_3.svg)
+  输出状态表示为:
+  $$ H_t = O_t \bigodot tanh(C_t). $$ 
+  > 当输出门近似1时, $C_t$将输出为隐藏状态, 近似0时, 只在记忆细胞自己保留.
+
 
 
 

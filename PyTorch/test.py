@@ -1,17 +1,21 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import d2lzh_pytorch as d2l
 
-class MyDense(nn.Module):
-    def __init__(self):
-        super(MyDense, self).__init__()
-        self.params = nn.ParameterList([nn.Parameter(torch.randn(4, 4))
-                                        for i in range(3)])
-        self.params.append(nn.Parameter(torch.randn(4, 1)))
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    def forward(self, x):
-        for i in range(len(self.params)):
-            x = torch.mm(x, self, params[i])
-        return x
-    
-net = MyDense()
-print(net)
+(corpus_indices, char_to_idx, idx_to_char, vocab_size) = d2l.load_data_jay_lyrics()
+
+## Init model params.
+num_inputs, num_hiddens, num_outputs = vocab_size, 256, vocab_size
+print('will use', device)
+
+num_epochs, num_steps, batch_size, lr, clipping_theta = 160, 35, 32, 1e-2, 1e-2
+pred_period, pred_len, prefixes = 40, 50, ['分开', '不分开']
+gru_layer = nn.LSTM(input_size=vocab_size, hidden_size=num_hiddens)
+model = d2l.RNNModel(gru_layer, vocab_size).to(device)
+d2l.train_and_predict_rnn_pytorch(model, num_hiddens, vocab_size, device,
+                                corpus_indices, idx_to_char, char_to_idx,
+                                num_epochs, num_steps, lr, clipping_theta,
+                                batch_size, pred_period, pred_len, prefixes)
