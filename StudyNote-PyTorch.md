@@ -194,7 +194,7 @@ conda env list
   $o_2 = x_1w_{12} + x_2w_{22} + x_3w_{32} + x_4w_{42} + b_2, $
   $o_3 = x_1w_{13} + x_2w_{23} + x_3w_{33} + x_4w_{43} + b_3. $
 
-  softmax运算符 (softmax operator)将输出层的输出值变为值为正且和为1的概率分布:
+  softmax运算符 (softmax operator)将输出层的输出值变为值为**正**且**和为1**的概率分布:
   $$y'_1, y'_2, y'_3 = softmax(o_1, o_2, o_3)$$
   其中
   $$y'_1 = { {exp(o_1)} \over {\sum^3_{i=1} exp(o_i)} },  
@@ -584,6 +584,58 @@ $$ O_t = H_tW_{hq} + b_q $$
   输出状态表示为:
   $$ H_t = O_t \bigodot tanh(C_t). $$ 
   > 当输出门近似1时, $C_t$将输出为隐藏状态, 近似0时, 只在记忆细胞自己保留.
+
+## 自然语言处理 (NLP)
+
+### 词嵌入 (word2vec, word embedding)
+  [ref](https://www.zybuluo.com/Dounm/note/591752#23-%E6%A6%82%E7%8E%87%E6%A8%A1%E5%9E%8B%E5%87%BD%E6%95%B0%E5%8C%96)
+
+  - 神经概率语言模型
+  构造 最大对数似然函数 , 来对N-gram模型进行函数化:
+  $$ L = \sum_{w\in{C}}log F(w, Context(w), \theta) $$
+  其中,
+  $C$为语料库,
+  $Context(w)$是词w的上下文, 
+  $\theta$为待训练参数
+
+    接下来就是采用『神经网络』来构造『函数F()』
+  
+  ![神经概率语言模型](https://raw.githubusercontent.com/Dounm/TheFarmOfDounm/master/resources/images/word2vec/1.png)
+
+  $$ (Context(w), w) -> X_w -> Z_w -> y_w $$
+  其中, 
+  $(Context(w), w$为训练样本, $Context(x)$取前面n - 1个词
+  $X_w$为投影层向量, 将训练样本的前n - 1个词的**词向量收尾拼接**在一起构成$X_w$
+  $Z_w$为隐藏层向量, $Z_w = tanh(WX_w + p)$ 
+  $y_w$为输出层向量, $y_w = Uz_w + q$
+
+  在对$y_w$做Softmax归一化后, $y_w$的分量就表示当前词是$w$的概率.
+
+  该神经网络的参数有『词向量$v(w)$』, 『神经网络参数W, p, U, q』. 确定了这些参数, 就相当于确定了『函数F』的参数, 就能求得整个句子的概率.
+
+  > **优点**: 可以求出词之间的相似度, 概率不可能为0
+    **缺点**: 计算量太大
+  
+  - Word2vec相比于神经概率语言模型的改进
+    - 优化网络结构
+      删去隐藏层, 将投影层的节点数由num_context * dimen_v变成dimen_v, 简化计算从而能训练更多的数据 
+    - 优化Softmax
+      采用树型Softmax Hierarchical Softmax + Huffman树 或是
+      ![Hierarchical-Softmax](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter10/10.2_hi-softmax.svg)
+      负采样的方法简化Softmax的计算 (不使用全部的词向量来做Softmax的分母, 只随机选用一些负样本)
+
+  根据上述的改进, 产生了两个模型: 跳字模型 与 连续词袋模型.
+  - 跳字模型 (skip-gram)
+  跳字模型关心的是, 给定中心词A, 生成邻近的B, C, D的概率.
+  ![skip-gram](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter10/10.1_skip-gram.svg)
+  即:
+  $$ P("the", "man", "his", "sun", | "loves").  $$
+
+  - 连续词袋模型(Continuous Bag-of-Words Model, CBOW)
+  连续词袋模型与跳字模型类型, 最大的不同在于, 后者是基于某个中心词前后的背景词来生成该中心词.
+  ![连续词袋](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter10/10.1_cbow.svg)
+  即:
+  $$ P("loves" | "the", "man", "his", "son"). $$
 
 
 

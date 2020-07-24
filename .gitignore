@@ -2,3 +2,4 @@
 /PyTorch/__pycache__/*
 /PyTorch/Datasets/*
 /Pytorch/test.py
+/PyTorch/Models/*
