@@ -1,21 +1,28 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchtext.vocab as vocab
+
 import d2lzh_pytorch as d2l
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+cache_dir = "Datasets/glove"
+glove = vocab.GloVe(name='6B', dim=50, cache=cache_dir) # 与上面等价
 
-(corpus_indices, char_to_idx, idx_to_char, vocab_size) = d2l.load_data_jay_lyrics()
+print(glove)
+print("len(vectors) =", len(glove.vectors))
 
-## Init model params.
-num_inputs, num_hiddens, num_outputs = vocab_size, 256, vocab_size
-print('will use', device)
+def knn(W, x, k):
+    # 添加的1e-9是为了数值稳定性
+    cos = torch.matmul(W, x.view((-1,))) / (
+        (torch.sum(W * W, dim=1) + 1e-9).sqrt() * torch.sum(x * x).sqrt())
+    _, topk = torch.topk(cos, k=k)
+    topk = topk.cpu().numpy()
+    return topk, [cos[i].item() for i in topk]
 
-num_epochs, num_steps, batch_size, lr, clipping_theta = 160, 35, 32, 1e-2, 1e-2
-pred_period, pred_len, prefixes = 40, 50, ['分开', '不分开']
-gru_layer = nn.LSTM(input_size=vocab_size, hidden_size=num_hiddens)
-model = d2l.RNNModel(gru_layer, vocab_size).to(device)
-d2l.train_and_predict_rnn_pytorch(model, num_hiddens, vocab_size, device,
-                                corpus_indices, idx_to_char, char_to_idx,
-                                num_epochs, num_steps, lr, clipping_theta,
-                                batch_size, pred_period, pred_len, prefixes)
+def get_similar_tokens(query_token, k, embed):
+    topk, cos = knn(embed.vectors,
+                    embed.vectors[embed.stoi[query_token]], k+1)
+    for i, c in zip(topk[1:], cos[1:]):  # 除去输入词
+        print('cosine sim=%.3f: %s' % (c, (embed.itos[i])))
+
+get_similar_tokens('women', 3, glove)

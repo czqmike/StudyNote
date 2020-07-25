@@ -587,7 +587,7 @@ $$ O_t = H_tW_{hq} + b_q $$
 
 ## 自然语言处理 (NLP)
 
-### 词嵌入 (word2vec, word embedding)
+### 词向量 
   [ref](https://www.zybuluo.com/Dounm/note/591752#23-%E6%A6%82%E7%8E%87%E6%A8%A1%E5%9E%8B%E5%87%BD%E6%95%B0%E5%8C%96)
 
   - 神经概率语言模型
@@ -624,19 +624,28 @@ $$ O_t = H_tW_{hq} + b_q $$
       ![Hierarchical-Softmax](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter10/10.2_hi-softmax.svg)
       负采样的方法简化Softmax的计算 (不使用全部的词向量来做Softmax的分母, 只随机选用一些负样本)
 
-  根据上述的改进, 产生了两个模型: 跳字模型 与 连续词袋模型.
-  - 跳字模型 (skip-gram)
-  跳字模型关心的是, 给定中心词A, 生成邻近的B, C, D的概率.
-  ![skip-gram](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter10/10.1_skip-gram.svg)
-  即:
-  $$ P("the", "man", "his", "sun", | "loves").  $$
+    根据上述的改进, 产生了两个模型: 跳字模型 与 连续词袋模型.
+    - 跳字模型 (skip-gram)
+    跳字模型关心的是, 给定中心词A, 生成邻近的B, C, D的概率.
+    ![skip-gram](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter10/10.1_skip-gram.svg)
+    即:
+    $$ P("the", "man", "his", "sun", | "loves").  $$
 
-  - 连续词袋模型(Continuous Bag-of-Words Model, CBOW)
-  连续词袋模型与跳字模型类型, 最大的不同在于, 后者是基于某个中心词前后的背景词来生成该中心词.
-  ![连续词袋](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter10/10.1_cbow.svg)
-  即:
-  $$ P("loves" | "the", "man", "his", "son"). $$
+    - 连续词袋模型(Continuous Bag-of-Words Model, CBOW)
+    连续词袋模型与跳字模型类型, 最大的不同在于, 后者是基于某个中心词前后的背景词来生成该中心词.
+    ![连续词袋](https://tangshusen.me/Dive-into-DL-PyTorch/img/chapter10/10.1_cbow.svg)
+    即:
+    $$ P("loves" | "the", "man", "his", "son"). $$
 
+    - Word2vec实现
+    见[`Source Code: word2vec.py`](PyTorch/word2vec.py)
+  
+  - GloVe模型
+  当词典中含有大量生僻词的时候, 交叉熵损失函数会带来过大的计算开销, 并且预测结果也并不准确.
+  为了应对这个问题, GloVe(Global Vectors) 模型采用平方损失函数, 并且最终最小化损失函数.
+
+- 实现: Sentiment classification on Large Movie Review
+  见[`Source Code: IMDB_Emotions.py`](PyTorch/IMDB_Emotions.py)
 
 
 
